@@ -108,8 +108,9 @@ exports.getStatus = async (req,res) => {
     }
 }
 
-exports.getLogs = async (req, res) => {
+exports.getLogs = async (req,res) => {
     try {
+
         const dummyDb = await droneLogServer();
 
         const page = parseInt(req.query.page) || 1;
@@ -117,75 +118,56 @@ exports.getLogs = async (req, res) => {
         const totalPages = parseInt(dummyDb.totalPages);
 
         let allLogs = [];
+        // const logs = dummyDb.items.map( async (log) => {
+        for(let i = 1; i <= totalPages; i++) {
+            const response = await fetch(`https://app-tracking.pockethost.io/api/collections/drone_logs/records?page=${i}`);
+            const dataResponse = await response.json();
 
-        const fetchPromises = [];
-        for (let i = 1; i <= totalPages; i++) {
-            fetchPromises.push(
-                fetch(`https://app-tracking.pockethost.io/api/collections/drone_logs/records?page=${i}`)
-                    .then(response => {
-                        // ตรวจสอบสถานะการตอบกลับก่อน
-                        if (!response.ok) {
-                            throw new Error(`Failed to fetch data from page ${i}: ${response.statusText}`);
+            const logs = dataResponse.items.map(log => {
+                // if(log.drone_id <= 100){
+                        const data = {
+                            drone_id: log.drone_id,
+                            drone_name: log.drone_name,
+                            light: log.light,
+                            country: log.country,
+                            celsius: log.celsius,
+                            created: log.created,
                         }
-                        return response.json();
-                    })
-                    .catch(error => {
-                        // ถ้าการ fetch ล้มเหลว ให้แสดง error ในกรณีที่เกิดปัญหา
-                        console.error(`Error fetching data from page ${i}:`, error);
-                        return null; // ส่งค่า null ในกรณีที่เกิดข้อผิดพลาด
-                    })
-            );
+                        return data;
+                // }
+                // return null;
+            })            
+            allLogs = allLogs.concat(logs);        
         }
-
-        const allDataResponses = await Promise.all(fetchPromises);
-
-        allDataResponses.forEach(dataResponse => {
-            if (dataResponse && dataResponse.items) {
-                const logs = dataResponse.items.map(log => {
-                    const data = {
-                        drone_id: log.drone_id,
-                        drone_name: log.drone_name,
-                        light: log.light,
-                        country: log.country,
-                        celsius: log.celsius,
-                        created: log.created,
-                    };
-                    return data;
-                });
-                allLogs = allLogs.concat(logs);
-            }
-        });
-
+        // .filter(data => data !== null)
         allLogs.sort((a, b) => new Date(b.created) - new Date(a.created));
-
+        
         const startIndex = (page - 1) * itemsPerPage;
         const endIndex = startIndex + itemsPerPage;
         const paginatedLogs = allLogs.slice(startIndex, endIndex);
 
-        if (paginatedLogs.length > 0) {
+        if(paginatedLogs.length > 0) {
             return res.status(200).json({
-                status: 'success',
+                status:'success',
                 currentPage: page,
                 totalPages: dummyDb.totalPages,
                 count: paginatedLogs.length,
                 data: paginatedLogs,
-            });
+            })
         }
 
         return res.status(200).json({
             status: 'success',
             data: 'No data',
-        });
+        })
 
     } catch (error) {
-        console.error("Error:", error);  // Log the error for debugging
         return res.status(500).json({
             status: 'failed',
-            message: error.message,
-        });
+            message: error.message
+        })
     }
-};
-
+}
 
 
 exports.postLogs = async (req, res) => {
