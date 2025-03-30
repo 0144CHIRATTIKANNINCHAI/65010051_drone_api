@@ -116,39 +116,65 @@ exports.getLogs = async (req, res) => {
         const itemsPerPage = parseInt(dummyDb.perPage);
         const totalPages = parseInt(dummyDb.totalPages);
 
-        if (page > totalPages) {
-            return res.status(404).json({
-                status: 'failed',
-                message: 'Page not found'
+        let allLogs = [];
+        
+        // ใช้ Promise.all เพื่อทำให้ fetch พร้อมกันทั้งหมด
+        const fetchPromises = [];
+        for (let i = 1; i <= totalPages; i++) {
+            fetchPromises.push(fetch(`https://app-tracking.pockethost.io/api/collections/drone_logs/records?page=${i}`).then(response => response.json()));
+        }
+
+        // รอให้ fetch ทั้งหมดเสร็จ
+        const allDataResponses = await Promise.all(fetchPromises);
+
+        // รวม logs จากทุกหน้า
+        allDataResponses.forEach(dataResponse => {
+            const logs = dataResponse.items.map(log => {
+                const data = {
+                    drone_id: log.drone_id,
+                    drone_name: log.drone_name,
+                    light: log.light,
+                    country: log.country,
+                    celsius: log.celsius,
+                    created: log.created,
+                };
+                return data;
+            });
+            allLogs = allLogs.concat(logs);
+        });
+
+        // เรียงข้อมูลตามวันที่
+        allLogs.sort((a, b) => new Date(b.created) - new Date(a.created));
+
+        // คำนวณข้อมูลที่จะแสดงในหน้า
+        const startIndex = (page - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const paginatedLogs = allLogs.slice(startIndex, endIndex);
+
+        // ส่งข้อมูลไปยัง client
+        if (paginatedLogs.length > 0) {
+            return res.status(200).json({
+                status: 'success',
+                currentPage: page,
+                totalPages: dummyDb.totalPages,
+                count: paginatedLogs.length,
+                data: paginatedLogs,
             });
         }
 
-        const response = await fetch(`https://app-tracking.pockethost.io/api/collections/drone_logs/records?page=${page}`);
-        const dataResponse = await response.json();
-
-        const logs = dataResponse.items.map(log => ({
-            drone_id: log.drone_id,
-            drone_name: log.drone_name,
-            country: log.country,
-            celsius: log.celsius,
-            created: log.created,
-        }));
-
         return res.status(200).json({
             status: 'success',
-            currentPage: page,
-            totalPages,
-            count: logs.length,
-            data: logs,
+            data: 'No data',
         });
 
     } catch (error) {
         return res.status(500).json({
             status: 'failed',
-            message: error.message
+            message: error.message,
         });
     }
 };
+
 
 
 exports.postLogs = async (req, res) => {
