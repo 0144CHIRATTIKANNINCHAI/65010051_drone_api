@@ -117,41 +117,51 @@ exports.getLogs = async (req, res) => {
         const totalPages = parseInt(dummyDb.totalPages);
 
         let allLogs = [];
-        
-        // ใช้ Promise.all เพื่อทำให้ fetch พร้อมกันทั้งหมด
+
         const fetchPromises = [];
         for (let i = 1; i <= totalPages; i++) {
-            fetchPromises.push(fetch(`https://app-tracking.pockethost.io/api/collections/drone_logs/records?page=${i}`).then(response => response.json()));
+            fetchPromises.push(
+                fetch(`https://app-tracking.pockethost.io/api/collections/drone_logs/records?page=${i}`)
+                    .then(response => {
+                        // ตรวจสอบสถานะการตอบกลับก่อน
+                        if (!response.ok) {
+                            throw new Error(`Failed to fetch data from page ${i}: ${response.statusText}`);
+                        }
+                        return response.json();
+                    })
+                    .catch(error => {
+                        // ถ้าการ fetch ล้มเหลว ให้แสดง error ในกรณีที่เกิดปัญหา
+                        console.error(`Error fetching data from page ${i}:`, error);
+                        return null; // ส่งค่า null ในกรณีที่เกิดข้อผิดพลาด
+                    })
+            );
         }
 
-        // รอให้ fetch ทั้งหมดเสร็จ
         const allDataResponses = await Promise.all(fetchPromises);
 
-        // รวม logs จากทุกหน้า
         allDataResponses.forEach(dataResponse => {
-            const logs = dataResponse.items.map(log => {
-                const data = {
-                    drone_id: log.drone_id,
-                    drone_name: log.drone_name,
-                    light: log.light,
-                    country: log.country,
-                    celsius: log.celsius,
-                    created: log.created,
-                };
-                return data;
-            });
-            allLogs = allLogs.concat(logs);
+            if (dataResponse && dataResponse.items) {
+                const logs = dataResponse.items.map(log => {
+                    const data = {
+                        drone_id: log.drone_id,
+                        drone_name: log.drone_name,
+                        light: log.light,
+                        country: log.country,
+                        celsius: log.celsius,
+                        created: log.created,
+                    };
+                    return data;
+                });
+                allLogs = allLogs.concat(logs);
+            }
         });
 
-        // เรียงข้อมูลตามวันที่
         allLogs.sort((a, b) => new Date(b.created) - new Date(a.created));
 
-        // คำนวณข้อมูลที่จะแสดงในหน้า
         const startIndex = (page - 1) * itemsPerPage;
         const endIndex = startIndex + itemsPerPage;
         const paginatedLogs = allLogs.slice(startIndex, endIndex);
 
-        // ส่งข้อมูลไปยัง client
         if (paginatedLogs.length > 0) {
             return res.status(200).json({
                 status: 'success',
@@ -168,6 +178,7 @@ exports.getLogs = async (req, res) => {
         });
 
     } catch (error) {
+        console.error("Error:", error);  // Log the error for debugging
         return res.status(500).json({
             status: 'failed',
             message: error.message,
