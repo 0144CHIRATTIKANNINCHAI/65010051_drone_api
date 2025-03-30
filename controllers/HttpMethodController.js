@@ -108,60 +108,48 @@ exports.getStatus = async (req,res) => {
     }
 }
 
-exports.getLogs = async (req,res) => {
+exports.getLogs = async (req, res) => {
     try {
-
         const dummyDb = await droneLogServer();
 
         const page = parseInt(req.query.page) || 1;
         const itemsPerPage = parseInt(dummyDb.perPage);
         const totalPages = parseInt(dummyDb.totalPages);
 
-        let allLogs = [];
-        for(let i = 1; i <= totalPages; i++) {
-            const response = await fetch(`https://app-tracking.pockethost.io/api/collections/drone_logs/records?page=${i}`);
-            const dataResponse = await response.json();
-
-            const logs = dataResponse.items.map(log => {
-                        const data = {
-                            drone_id: log.drone_id,
-                            drone_name: log.drone_name,
-                            country: log.country,
-                            celsius: log.celsius,
-                            created: log.created,
-                        }
-                        return data;
-            })            
-            allLogs = allLogs.concat(logs);        
+        if (page > totalPages) {
+            return res.status(404).json({
+                status: 'failed',
+                message: 'Page not found'
+            });
         }
-        allLogs.sort((a, b) => new Date(b.created) - new Date(a.created));
-        
-        const startIndex = (page - 1) * itemsPerPage;
-        const endIndex = startIndex + itemsPerPage;
-        const paginatedLogs = allLogs.slice(startIndex, endIndex);
 
-        if(paginatedLogs.length > 0) {
-            return res.status(200).json({
-                status:'success',
-                currentPage: page,
-                totalPages: dummyDb.totalPages,
-                count: paginatedLogs.length,
-                data: paginatedLogs,
-            })
-        }
+        const response = await fetch(`https://app-tracking.pockethost.io/api/collections/drone_logs/records?page=${page}`);
+        const dataResponse = await response.json();
+
+        const logs = dataResponse.items.map(log => ({
+            drone_id: log.drone_id,
+            drone_name: log.drone_name,
+            light: log.light,
+            country: log.country,
+            celsius: log.celsius,
+            created: log.created,
+        }));
 
         return res.status(200).json({
             status: 'success',
-            data: 'No data',
-        })
+            currentPage: page,
+            totalPages,
+            count: logs.length,
+            data: logs,
+        });
 
     } catch (error) {
         return res.status(500).json({
             status: 'failed',
             message: error.message
-        })
+        });
     }
-}
+};
 
 
 exports.postLogs = async (req, res) => {
