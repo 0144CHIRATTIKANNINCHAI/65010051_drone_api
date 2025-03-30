@@ -16,15 +16,12 @@ exports.getAllConfigs = async (req,res) => {
         let result = [];
 
         dummyDb.data.forEach(drone => {
-            let max_speed;
             result.push({
                 drone_id: drone.drone_id,
                 drone_name: drone.drone_name,
                 light: drone.light,
                 country: drone.country,
-                max_speed: max_speed,
-                // condition: drone.condition
-                population: drone.population
+                weight: drone.weight
             });
         });
 
@@ -55,13 +52,12 @@ exports.getConfigs = async (req,res) => {
         const droneData = dummyDb.data.find(drone => drone.drone_id == req.params.id);
         
         if(droneData){
-            let max_speed;
             const data = {
                 drone_id: droneData.drone_id,
                 drone_name: droneData.drone_name,
                 light: droneData.light,
                 country: droneData.country,
-                max_speed: max_speed,
+                weight: droneData.weight
             }
 
             return res.status(200).json({
@@ -133,7 +129,6 @@ exports.getLogs = async (req, res) => {
         const logs = dataResponse.items.map(log => ({
             drone_id: log.drone_id,
             drone_name: log.drone_name,
-            light: log.light,
             country: log.country,
             celsius: log.celsius,
             created: log.created,
