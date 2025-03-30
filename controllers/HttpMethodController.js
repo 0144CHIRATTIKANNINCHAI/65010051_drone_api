@@ -116,11 +116,11 @@ exports.getLogs = async (req, res) => {
     try {
         const dummyDb = await droneLogServer();
 
-        const page = parseInt(req.query.page) || 1;
-        const itemsPerPage = parseInt(dummyDb.perPage);
         const totalPages = parseInt(dummyDb.totalPages);
+        const page = parseInt(req.query.page) || totalPages;
+        const itemsPerPage = parseInt(dummyDb.perPage);
 
-        if (page > totalPages) {
+        if (page < 1 || page > totalPages) {
             return res.status(404).json({
                 status: 'failed',
                 message: 'Page not found'
@@ -154,6 +154,7 @@ exports.getLogs = async (req, res) => {
         });
     }
 };
+
 
 exports.postLogs = async (req, res) => {
     try {
