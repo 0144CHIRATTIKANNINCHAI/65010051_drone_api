@@ -118,28 +118,22 @@ exports.getLogs = async (req,res) => {
         const totalPages = parseInt(dummyDb.totalPages);
 
         let allLogs = [];
-        // const logs = dummyDb.items.map( async (log) => {
         for(let i = 1; i <= totalPages; i++) {
             const response = await fetch(`https://app-tracking.pockethost.io/api/collections/drone_logs/records?page=${i}`);
             const dataResponse = await response.json();
 
             const logs = dataResponse.items.map(log => {
-                // if(log.drone_id <= 100){
                         const data = {
                             drone_id: log.drone_id,
                             drone_name: log.drone_name,
-                            light: log.light,
                             country: log.country,
                             celsius: log.celsius,
                             created: log.created,
                         }
                         return data;
-                // }
-                // return null;
             })            
             allLogs = allLogs.concat(logs);        
         }
-        // .filter(data => data !== null)
         allLogs.sort((a, b) => new Date(b.created) - new Date(a.created));
         
         const startIndex = (page - 1) * itemsPerPage;
